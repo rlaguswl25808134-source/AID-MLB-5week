@@ -2,7 +2,6 @@
 
 > **학습 범위**: 결정 트리(05-1) → 교차 검증과 그리드 서치(05-2)
 > **실습**: 캔 와인 분류 — 알코올 도수 · 당도 · pH 로 **레드/화이트 와인** 구분 (6,497개)
-> **복습**: 2주차 KNN 기초(갈라파고스 핀치) + 4주차 로지스틱 회귀 · 확률적 경사 하강법
 
 ---
 
@@ -15,53 +14,21 @@
 
 ---
 
-## 1. 로지스틱 회귀로는 왜 부족했을까?
+## 1. 결정 트리 (05-1)
 
-한빛 마켓의 캔 와인은 실수로 **레드/화이트 표시가 누락**되었습니다. 알코올 도수 · 당도 · pH 세 특성으로 와인 종류를 맞혀야 합니다. 타깃 `class`는 **0이면 레드, 1이면 화이트**(양성 클래스 = 화이트)인 이진 분류 문제입니다.
-
-먼저 4주차에 배운 **로지스틱 회귀**를 그대로 적용해 봅니다.
+와인 데이터는 특성 3개(**알코올 도수 · 당도 · pH**), 타깃은 **레드(0) / 화이트(1)** 입니다. 결정 트리는 표준화가 필요 없어서 **원본 데이터를 그대로** 사용합니다.
 
 ```python
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 wine = pd.read_csv('https://bit.ly/wine_csv_data')
 data = wine[['alcohol', 'sugar', 'pH']].to_numpy()
 target = wine['class'].to_numpy()
-```
-
-```python
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
 
 train_input, test_input, train_target, test_target = train_test_split(
     data, target, test_size=0.2, random_state=42)
-
-ss = StandardScaler()
-train_scaled = ss.fit_transform(train_input)
-test_scaled = ss.transform(test_input)
-
-lr = LogisticRegression()
-lr.fit(train_scaled, train_target)
-print(lr.score(train_scaled, train_target))   # 0.781
-print(lr.score(test_scaled, test_target))     # 0.778
-print(lr.coef_, lr.intercept_)
 ```
-
-```text
-[[ 0.51270274  1.6733911  -0.68767781]] [1.81777902]
-```
-
-- 훈련·테스트 점수가 **둘 다 낮아** 과소적합된 모델입니다. 화이트 와인을 골라내기가 생각보다 어렵습니다.
-- 더 큰 문제는 **설명**입니다. "알코올에 0.51을 곱하고, 당도에 1.67을 곱하고, pH에 −0.69를 곱해 더한 값이 0보다 크면 화이트"라고 말해도, **왜 그런 숫자가 나왔는지**는 아무도 이해하기 어렵습니다.
-
-> **💡 이사님의 한마디**
-> "보고서를 보고 이 일을 계속할지 결정할 수가 없군요. **순서도처럼 쉽게** 설명해서 다시 가져오세요."
-> → 그래서 등장한 것이 **결정 트리**입니다.
-
----
-
-## 2. 결정 트리 (05-1)
 
 ### 1) 스무고개와 같은 알고리즘
 
@@ -78,9 +45,9 @@ print(lr.coef_, lr.intercept_)
 from sklearn.tree import DecisionTreeClassifier
 
 dt = DecisionTreeClassifier(random_state=42)
-dt.fit(train_scaled, train_target)
-print(dt.score(train_scaled, train_target))   # 0.9969
-print(dt.score(test_scaled, test_target))     # 0.8592
+dt.fit(train_input, train_target)
+print(dt.score(train_input, train_target))   # 0.9969
+print(dt.score(test_input, test_target))     # 0.8592
 ```
 
 - 훈련 세트는 거의 **100%** 를 맞히지만 테스트는 86%로, **과대적합**된 모습입니다. (뒤에서 가지치기로 다듬습니다.)
@@ -91,7 +58,7 @@ print(dt.score(test_scaled, test_target))     # 0.8592
 
 | 용어 | 뜻 |
 |---|---|
-| **노드(node)** | 질문(테스트)을 담는 상자. 예: "당도 ≤ −0.239?" |
+| **노드(node)** | 질문(테스트)을 담는 상자. 예: "당도 ≤ 1.625?" |
 | **루트 노드(root)** | 맨 위의 시작 노드 |
 | **리프 노드(leaf)** | 맨 아래 끝 노드. 여기서 예측값이 결정됨 |
 | **가지(branch)** | 질문의 결과(예/아니오)를 따라가는 길 |
@@ -109,7 +76,7 @@ plt.show()
 
 노드 상자에는 4가지 정보가 담깁니다.
 
-- **테스트 조건**: `sugar <= -0.239`
+- **테스트 조건**: `sugar <= 1.625`
 - **불순도(gini)**: `gini = 0.367`
 - **총 샘플 수(samples)**: `5197`
 - **클래스별 샘플 수(value)**: `[레드 1258, 화이트 3939]`
@@ -172,9 +139,9 @@ plt.show()
 
 ```python
 dt = DecisionTreeClassifier(max_depth=3, random_state=42)
-dt.fit(train_scaled, train_target)
-print(dt.score(train_scaled, train_target))   # 0.8455
-print(dt.score(test_scaled, test_target))     # 0.8415
+dt.fit(train_input, train_target)
+print(dt.score(train_input, train_target))   # 0.8455
+print(dt.score(test_input, test_target))     # 0.8415
 ```
 
 - 훈련 점수는 낮아졌지만 **테스트 점수는 거의 그대로**입니다.
@@ -197,16 +164,21 @@ print(dt.feature_importances_)
 
 ### 8) 결정 트리는 표준화가 필요 없다
 
-불순도는 **클래스 비율**로만 계산하므로, 특성값의 **스케일이 결과에 영향을 주지 않습니다**.
+불순도는 **클래스 비율**로만 계산하므로, 특성값의 **스케일이 결과에 영향을 주지 않습니다**. 그래서 위 실습도 표준화 없이 원본 데이터를 그대로 썼습니다.
 
 ```python
+from sklearn.preprocessing import StandardScaler
+
+ss = StandardScaler()
+train_scaled = ss.fit_transform(train_input)
+
 dt = DecisionTreeClassifier(max_depth=3, random_state=42)
-dt.fit(train_input, train_target)   # 표준화 안 한 원본 데이터
-print(dt.score(train_input, train_target))   # 0.8455
-print(dt.score(test_input, test_target))     # 0.8415  ← 표준화와 동일
+dt.fit(train_scaled, train_target)
+print(dt.score(train_scaled, train_target))   # 0.8455  ← 원본과 완전히 동일
 ```
 
-게다가 원본 스케일로 그리면 훨씬 읽기 쉽습니다.
+- 표준화를 하든 안 하든 **결과가 같습니다.**
+- 게다가 원본 스케일로 그리면 훨씬 읽기 쉽습니다.
 
 > "당도가 **1.625보다 크고 4.325보다 작은** 와인 중 알코올 도수가 **11.025 이하**인 것이 레드 와인"
 
@@ -215,7 +187,7 @@ print(dt.score(test_input, test_target))     # 0.8415  ← 표준화와 동일
 
 ---
 
-## 3. 교차 검증과 그리드 서치 (05-2)
+## 2. 교차 검증과 그리드 서치 (05-2)
 
 ### 1) 검증 세트가 필요한 이유
 
@@ -337,7 +309,7 @@ best_params_ → {'max_depth': 39, 'min_impurity_decrease': 0.0003410...,
 
 ---
 
-## 4. 🔬 실습: 캔 와인 분류 (손코딩 요약)
+## 3. 🔬 실습: 캔 와인 분류 (손코딩 요약)
 
 ```python
 import pandas as pd
@@ -375,57 +347,9 @@ print(dt.feature_importances_)               # [0.123 0.869 0.008]
 
 ---
 
-## 5. 📚 복습 — 지난 주까지 배운 것
-
-### 2주차: 갈라파고스 핀치로 배운 ML 기초
-
-| 개념 | 핵심 한 줄 |
-|---|---|
-| **특성 / 학습 / 모델** | 데이터를 표현하는 성질 / `fit()`으로 규칙을 찾음 / 알고리즘이 구현된 객체 |
-| **지도 vs 비지도** | 정답을 주고 배움 vs 정답 없이 패턴을 찾음 |
-| **훈련 / 테스트 세트** | 배우는 데이터 / **한 번도 안 본** 데이터 (보통 20~50%) |
-| **KNN** | 규칙을 만들지 않고 데이터를 **저장**만 함. 가장 가까운 **k개 다수결** (게으른 학습) |
-| **정확도** | 맞힌 개수 ÷ 전체 개수 |
-| **데이터 전처리** | 스케일을 맞춤. **표준점수** = (값 − 평균) ÷ 표준편차 |
-
-- **표준화는 반드시 훈련 세트의 평균·표준편차**로! 테스트 세트로 다시 `fit`하면 **데이터 누수**가 생깁니다.
-- **브로드캐스팅**: 크기가 다른 numpy 배열끼리 자동으로 확장해 연산합니다.
-- 핀치 실습(49마리, `[:35]` / `[35:]`)에서 **변수 오타(`trian_input`)로 그래프가 통째로 바뀐 사건**과 **점이 겹쳐 보인 이유**, **노트북의 메모리 잔상**을 정리했습니다.
-
-> **💡 2주차의 교훈**
-> 변수는 "데이터를 담는 상자"가 아니라 **메모리 객체를 가리키는 이름표**입니다. 노트북은 마지막 셀까지 변수가 살아 있으니, **모두 실행**으로 순서를 맞추는 습관이 중요합니다.
-
-### 4주차: 로지스틱 회귀 & 확률적 경사 하강법
-
-| 개념 | 핵심 한 줄 |
-|---|---|
-| **로지스틱 회귀** | 선형 방정식을 **시그모이드/소프트맥스**로 통과시켜 확률로 분류 |
-| **시그모이드** | 임의의 값을 **0~1**로 압축. **이진 분류** |
-| **소프트맥스** | 여러 점수를 **합이 1인 확률**로 정규화. **다중 분류** |
-| **손실 함수** | 이진 → 이진 크로스엔트로피, 다중 → 크로스엔트로피, 회귀 → MSE |
-| **확률적 경사 하강법** | 샘플 **하나씩** 꺼내 손실의 경사를 따라 최적화 (미니배치/배치) |
-| **에포크** | 전체 샘플을 **한 번** 다 쓰는 반복 |
-
-> **💡 4주차 → 5주차 연결**
-> 로지스틱 회귀는 **계수**로 답하지만 설명이 어렵습니다. 그래서 5주차에서는 **질문(규칙)** 으로 답하는 **결정 트리**를 배웠습니다.
-
----
-
-## 6. 📸 스터디 현장
-
-이번 주는 **팀 챌린지**로 스터디를 진행했습니다. 중간중간 **양갱으로 에너지를 충전**하면서 끝까지 집중했어요. 🍡
+## 4. 📸 스터디 현장
 
 ![팀 챌린지에서 양갱으로 에너지를 충전하며 스터디한 모습](./assets/week5-yanggaeng.jpg)
-
----
-
-## 7. 📝 스터디 한 줄 회고
-
-> 이번 주는 **"설명할 수 있는 모델"** 의 가치를 배웠습니다.
-> 로지스틱 회귀의 계수는 정확해도 **왜 그런지** 말하기 어려웠는데, 결정 트리는 **질문의 흐름**으로 답을 보여 줍니다.
-> **불순도 → 정보 이득 → 가지치기 → 특성 중요도**로 이어지는 흐름을 따라가니 트리가 자라는 원리가 손에 잡혔습니다.
-> 그리고 `max_depth` 하나를 고르는 일조차 **검증 세트 · 교차 검증 · 그리드/랜덤 서치**로 자동화할 수 있다는 점이 인상 깊었습니다.
-> 다음에는 결정 트리를 확장한 **앙상블(랜덤 포레스트·부스팅)** 을 정리해 보고 싶습니다.
 
 ---
 
